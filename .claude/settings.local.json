@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/adamp/NimbleBrain/mcp-registry/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
