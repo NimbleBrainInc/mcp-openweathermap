@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/adamp/NimbleBrain/mcp-registry/**)"
+      "Bash(pytest:*)"
     ],
     "deny": [],
     "ask": []

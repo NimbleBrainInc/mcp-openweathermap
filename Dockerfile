@@ -1,16 +1,49 @@
-FROM python:3.11-slim
+FROM python:3.13-slim AS base
 
 WORKDIR /app
 
-# Copy requirements and install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install uv
+RUN apt-get update && apt-get install -y curl && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --no-cache-dir uv
 
-# Copy server code
-COPY server.py .
+# Copy project files
+COPY pyproject.toml ./
+COPY README.md ./
+COPY src/ ./src/
 
-# Expose port
+# Install dependencies
+RUN uv pip install --system --no-cache .
+
+# Create non-root user
+RUN groupadd -g 1000 mcpuser && \
+    useradd -m -u 1000 -g 1000 mcpuser && \
+    chown -R mcpuser:mcpuser /app
+
+USER mcpuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
 EXPOSE 8000
 
-# Run the FastMCP server
-CMD ["python", "-m", "fastmcp", "run", "server.py", "--transport", "streamable-http", "--port", "8000"]
+# Run with uvicorn
+CMD ["uvicorn", "mcp_openweathermap.server:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
+# Test stage
+FROM base AS test
+
+USER root
+
+# Install dev dependencies
+RUN uv pip install --system --no-cache -e . --group dev
+
+# Copy tests
+COPY tests/ ./tests/
+
+USER mcpuser
+
+# Run tests
+CMD ["pytest", "tests/", "-v"]
