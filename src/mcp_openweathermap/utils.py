@@ -162,7 +162,7 @@ def create_solar_radiation_response(
     uv_index: float | None = None,
     month: int | None = None,
 ) -> SolarRadiationData:
-    """Create a Solar5Estrella-formatted solar radiation response.
+    """Create a formatted solar radiation response.
 
     Args:
         location: Location name
@@ -173,7 +173,7 @@ def create_solar_radiation_response(
         month: Current month 1-12 (optional)
 
     Returns:
-        SolarRadiationData object formatted for Solar5Estrella integration
+        SolarRadiationData object
     """
     # Calculate current solar radiation
     radiation_data = calculate_solar_radiation_from_weather(
@@ -196,7 +196,7 @@ def create_solar_radiation_response(
 
 
 def format_weather_for_solar(weather_data: dict[str, Any], location: str) -> SolarRadiationData:
-    """Format weather data into Solar5Estrella solar radiation format.
+    """Format weather data into solar radiation format.
 
     Args:
         weather_data: Current weather data from OpenWeatherMap

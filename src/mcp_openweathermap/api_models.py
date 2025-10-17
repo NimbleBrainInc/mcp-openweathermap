@@ -1,6 +1,7 @@
 """Pydantic models for OpenWeatherMap API responses."""
 
 from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -277,7 +278,7 @@ class OneCallResponse(BaseModel):
 
 
 class SolarRadiationData(BaseModel):
-    """Solar radiation data for Solar5Estrella integration."""
+    """Solar radiation data."""
 
     location: str = Field(..., description="Location name")
     coordinates: Coordinates = Field(..., description="Geographic coordinates")
@@ -287,9 +288,7 @@ class SolarRadiationData(BaseModel):
         ..., description="Monthly average solar radiation (kWh/m²)"
     )
     source: str = Field(default="OpenWeatherMap", description="Data source")
-    cloud_cover_factor: float | None = Field(
-        None, description="Average cloud cover factor (0-1)"
-    )
+    cloud_cover_factor: float | None = Field(None, description="Average cloud cover factor (0-1)")
     uv_index_avg: float | None = Field(None, description="Average UV index")
 
 
@@ -301,4 +300,6 @@ class GeocodingResult(BaseModel):
     lon: float = Field(..., description="Longitude")
     country: str = Field(..., description="Country code")
     state: str | None = Field(None, description="State/region name")
-    local_names: dict[str, str] | None = Field(None, description="Local names in different languages")
+    local_names: dict[str, str] | None = Field(
+        None, description="Local names in different languages"
+    )

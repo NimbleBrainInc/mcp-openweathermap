@@ -1,12 +1,22 @@
 # OpenWeatherMap MCP Server
 
-S-Tier production-ready MCP server for accessing comprehensive weather data from OpenWeatherMap with Solar5Estrella integration.
+[![NimbleTools Registry](https://img.shields.io/badge/NimbleTools-Registry-green)](https://github.com/nimbletoolsinc/mcp-registry)
+[![NimbleBrain Platform](https://img.shields.io/badge/NimbleBrain-Platform-blue)](https://www.nimblebrain.ai)
+[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://www.nimblebrain.ai/discord?utm_source=github&utm_medium=readme&utm_campaign=mcp-abstract&utm_content=discord-badge)
+
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/NimbleBrainInc/mcp-abstract/actions/workflows/ci.yaml/badge.svg)](https://github.com/NimbleBrainInc/mcp-openweathermap/actions)
+
+
+## About
+
+Production-ready MCP server for accessing comprehensive weather data from OpenWeatherMap.
 
 ## Features
 
-- **S-Tier Architecture**: Production-ready with separation of concerns, strong typing, and comprehensive testing
+- **Enterprise ready**: Production-ready with separation of concerns, strong typing, and comprehensive testing
 - **Full API Coverage**: Current weather, forecasts, air quality, UV index
-- **Solar5Estrella Integration**: Solar radiation calculations for solar energy systems
 - **Strongly Typed**: All responses use Pydantic models with full type safety
 - **HTTP & Stdio Transport**: Supports both streamable-http and stdio for Claude Desktop
 - **Async/Await**: Built on aiohttp for high performance
@@ -160,7 +170,7 @@ Get UV index for a location.
 
 **Returns:** UV index data (0-2: Low, 3-5: Moderate, 6-7: High, 8-10: Very High, 11+: Extreme)
 
-### 5. `get_solar_radiation` (Solar5Estrella Integration)
+### 5. `get_solar_radiation`
 
 Get solar radiation data for solar energy calculations.
 
@@ -177,7 +187,7 @@ Get solar radiation data for solar energy calculations.
 - `cloud_cover_factor`: Cloud cover reduction factor
 - `uv_index_avg`: Average UV index
 
-**Solar5Estrella Format:**
+**Response Format:**
 ```json
 {
   "location": "Panama City, Panama",
@@ -337,10 +347,6 @@ curl http://localhost:8000/health
 # {"status": "healthy", "service": "openweathermap-mcp"}
 ```
 
-## License
-
-MIT
-
 ## Contributing
 
 1. Fork the repository
@@ -355,18 +361,14 @@ For issues or questions:
 - OpenWeatherMap API: [support.openweathermap.org](https://support.openweathermap.org)
 - MCP Server: Create an issue in the repository
 
-## Changelog
+## License
 
-### Version 1.0.0 (S-Tier Architecture)
+MIT
 
-- Complete refactor to S-Tier architecture
-- Separated API client layer with aiohttp
-- Added Pydantic models for type safety
-- Implemented Solar5Estrella integration
-- Added comprehensive test suite
-- Added Panama location presets
-- Added Docker support
-- Added Makefile for development workflow
-- Full mypy strict mode compliance
-- Health check endpoint
-- Both stdio and HTTP transport support
+## Links
+
+Part of the [NimbleTools Registry](https://github.com/nimbletoolsinc/mcp-registry) - an open source collection of production-ready MCP servers. For enterprise deployment, check out [NimbleBrain](https://www.nimblebrain.ai).
+
+- [OpenWeather Map API](https://openweathermap.org/api)
+- [FastMCP Documentation](https://github.com/jlowin/fastmcp)
+- [MCP Documentation](https://modelcontextprotocol.io)

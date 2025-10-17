@@ -2,6 +2,7 @@
 
 import os
 from typing import Any
+
 import aiohttp
 from aiohttp import ClientError
 
@@ -18,9 +19,7 @@ from .api_models import (
 class OpenWeatherMapAPIError(Exception):
     """Custom exception for OpenWeatherMap API errors."""
 
-    def __init__(
-        self, status: int, message: str, details: dict[str, Any] | None = None
-    ) -> None:
+    def __init__(self, status: int, message: str, details: dict[str, Any] | None = None) -> None:
         self.status = status
         self.message = message
         self.details = details
@@ -122,7 +121,7 @@ class OpenWeatherMapClient:
                         )
                     raise OpenWeatherMapAPIError(response.status, error_msg, result)
 
-                return result  # type: ignore[no-any-return]
+                return result
 
         except ClientError as e:
             raise OpenWeatherMapAPIError(500, f"Network error: {str(e)}") from e
@@ -227,9 +226,7 @@ class OpenWeatherMapClient:
             return [GeocodingResult(**item) for item in data]
         return []
 
-    async def get_weather_by_city(
-        self, city: str, units: str = "metric"
-    ) -> CurrentWeatherResponse:
+    async def get_weather_by_city(self, city: str, units: str = "metric") -> CurrentWeatherResponse:
         """Get current weather by city name.
 
         Args:

@@ -1,5 +1,5 @@
-IMAGE_NAME = mcp-openweathermap
-VERSION ?= latest
+IMAGE_NAME = nimbletools/mcp-openweathermap
+VERSION ?= 1.0.0
 
 .PHONY: help install dev-install format lint test clean run check all
 
@@ -33,6 +33,9 @@ test: ## Run tests with pytest
 test-cov: ## Run tests with coverage
 	uv run pytest tests/ -v --cov=src/mcp_openweathermap --cov-report=term-missing
 
+test-e2e: ## Run end-to-end Docker tests
+	uv run pytest e2e/ -v -s
+
 clean: ## Clean up artifacts
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
@@ -61,6 +64,12 @@ docker-run: ## Run Docker container
 
 docker-test: ## Run tests in Docker
 	docker build -t $(IMAGE_NAME):test --target test .
+
+release: ## Build and push multi-platform Docker image
+	docker buildx build --platform linux/amd64,linux/arm64 \
+		-t $(IMAGE_NAME):$(VERSION) \
+		-t $(IMAGE_NAME):latest \
+		--push .
 
 # Aliases
 fmt: format

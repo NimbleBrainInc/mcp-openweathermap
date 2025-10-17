@@ -1,4 +1,4 @@
-FROM python:3.13-slim AS base
+FROM python:3.13-slim
 
 WORKDIR /app
 
@@ -30,20 +30,3 @@ EXPOSE 8000
 
 # Run with uvicorn
 CMD ["uvicorn", "mcp_openweathermap.server:app", "--host", "0.0.0.0", "--port", "8000"]
-
-
-# Test stage
-FROM base AS test
-
-USER root
-
-# Install dev dependencies
-RUN uv pip install --system --no-cache -e . --group dev
-
-# Copy tests
-COPY tests/ ./tests/
-
-USER mcpuser
-
-# Run tests
-CMD ["pytest", "tests/", "-v"]

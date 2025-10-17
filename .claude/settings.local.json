@@ -1,7 +1,26 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pytest:*)"
+      "Bash(pytest:*)",
+      "Read(//Users/mgolds02/Code/registry/mcp-abstract/e2e/**)",
+      "Bash(make test:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(uv run ruff check:*)",
+      "Bash(make lint:*)",
+      "Bash(make typecheck:*)",
+      "Bash(mkdir:*)",
+      "Bash(make format:*)",
+      "Bash(make check:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(docker run:*)",
+      "Read(//Users/mgolds02/Code/registry/mcp-abstract/**)",
+      "Read(//Users/mgolds02/Code/registry/**)",
+      "Bash(npx tsx:*)",
+      "Bash(make test-e2e:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
