@@ -1,5 +1,5 @@
 IMAGE_NAME = nimbletools/mcp-openweathermap
-VERSION ?= 1.0.0
+VERSION ?= 1.0.1
 
 .PHONY: help install dev-install format lint test clean run check all
 

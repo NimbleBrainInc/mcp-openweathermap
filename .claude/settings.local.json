@@ -20,7 +20,15 @@
       "Read(//Users/mgolds02/Code/registry/**)",
       "Bash(npx tsx:*)",
       "Bash(make test-e2e:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(uv run python:*)",
+      "Bash(uv run mypy:*)",
+      "Bash(make build:*)",
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)",
+      "Read(//private/tmp/**)",
+      "Read(//Users/mgolds02/.vscode/**)",
+      "Bash(make lint-fix:*)"
     ],
     "deny": [],
     "ask": []

@@ -52,7 +52,3 @@ Pipfile.lock
 *.pem
 credentials.json
 .secrets/
-
-# Old server file (replaced by S-Tier architecture)
-server.py
-requirements.txt
