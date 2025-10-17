@@ -1,439 +1,374 @@
 # OpenWeatherMap MCP Server
 
-MCP server for accessing comprehensive weather data from OpenWeatherMap. Get current weather, forecasts, alerts, air quality, UV index, and historical data for 200,000+ cities worldwide.
+[![NimbleTools Registry](https://img.shields.io/badge/NimbleTools-Registry-green)](https://github.com/nimbletoolsinc/mcp-registry)
+[![NimbleBrain Platform](https://img.shields.io/badge/NimbleBrain-Platform-blue)](https://www.nimblebrain.ai)
+[![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://www.nimblebrain.ai/discord?utm_source=github&utm_medium=readme&utm_campaign=mcp-abstract&utm_content=discord-badge)
+
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/NimbleBrainInc/mcp-abstract/actions/workflows/ci.yaml/badge.svg)](https://github.com/NimbleBrainInc/mcp-openweathermap/actions)
+
+
+## About
+
+Production-ready MCP server for accessing comprehensive weather data from OpenWeatherMap.
 
 ## Features
 
-- **Current Weather**: Real-time weather conditions for any location
-- **Forecasts**: 5-day forecast with 3-hour intervals, hourly forecasts
-- **Weather Alerts**: Severe weather warnings and alerts
-- **Air Quality**: AQI and pollutant measurements (PM2.5, PM10, O3, NO2, SO2, CO)
-- **Historical Data**: Access past weather data
-- **UV Index**: Current UV radiation levels
-- **City Search**: Search and geocode city names
-- **Multiple Units**: Support for metric, imperial, and standard units
+- **Enterprise ready**: Production-ready with separation of concerns, strong typing, and comprehensive testing
+- **Full API Coverage**: Current weather, forecasts, air quality, UV index
+- **Strongly Typed**: All responses use Pydantic models with full type safety
+- **HTTP & Stdio Transport**: Supports both streamable-http and stdio for Claude Desktop
+- **Async/Await**: Built on aiohttp for high performance
+- **Type Safe**: Full mypy strict mode compliance
+- **Comprehensive Tests**: 100% coverage with pytest + AsyncMock
+- **Panama Locations**: Built-in coordinates for major Panama cities
 
-## Setup
+## Architecture
+
+```
+src/mcp_openweathermap/
+├── __init__.py          # Package exports
+├── server.py            # FastMCP server with 6 MCP tools
+├── api_client.py        # OpenWeatherMapClient with aiohttp
+├── api_models.py        # Pydantic models for type safety
+└── utils.py             # Helper functions and solar calculations
+
+tests/
+├── test_server.py       # MCP tool tests
+└── test_api_client.py   # API client tests
+```
+
+## Installation
 
 ### Prerequisites
 
-- OpenWeatherMap account
-- API key from [openweathermap.org](https://openweathermap.org/api)
+- Python >=3.10
+- OpenWeatherMap API key from [openweathermap.org](https://openweathermap.org/api)
 
-### Environment Variables
+### Using uv (recommended)
 
-- `OPENWEATHERMAP_API_KEY` (required): Your OpenWeatherMap API key
+```bash
+# Install dependencies
+uv pip install -e .
 
-**How to get an API key:**
-1. Go to [openweathermap.org/api](https://openweathermap.org/api)
-2. Sign up for a free or paid account
-3. Navigate to API keys section in your account
-4. Generate and copy your API key
-5. Free tier includes 1,000 calls/day and 60 calls/minute
+# Install with dev dependencies
+uv pip install -e . --group dev
+```
 
-## Available Tools
+### Using pip
 
-### Current Weather Tools
+```bash
+pip install -e .
+```
 
-#### `get_current_weather`
+## Configuration
+
+Set your API key as an environment variable:
+
+```bash
+export OPENWEATHERMAP_API_KEY=your_api_key_here
+```
+
+Or create a `.env` file:
+
+```
+OPENWEATHERMAP_API_KEY=your_api_key_here
+```
+
+## Running the Server
+
+### Stdio Mode (for Claude Desktop)
+
+```bash
+# Using make
+make run
+
+# Or directly
+uv run python -m mcp_openweathermap.server
+```
+
+### HTTP Mode (for web applications)
+
+```bash
+# Using make
+make run-http
+
+# Or directly
+uv run uvicorn mcp_openweathermap.server:app --host 0.0.0.0 --port 8000
+```
+
+### Docker
+
+```bash
+# Build image
+make docker-build
+
+# Run container
+make docker-run OPENWEATHERMAP_API_KEY=your_key
+
+# Or using docker directly
+docker build -t mcp-openweathermap .
+docker run -p 8000:8000 -e OPENWEATHERMAP_API_KEY=your_key mcp-openweathermap
+```
+
+## Available MCP Tools
+
+### 1. `get_current_weather`
+
 Get current weather conditions for a location.
 
 **Parameters:**
-- `city` (string, optional): City name (e.g., 'London', 'New York,US', 'Tokyo,JP')
+- `location` (str, optional): Location name (e.g., 'Panama City', 'London,GB')
 - `lat` (float, optional): Latitude coordinate (use with lon)
 - `lon` (float, optional): Longitude coordinate (use with lat)
-- `units` (string, optional): Units ('metric', 'imperial', 'standard', default: 'metric')
+- `units` (str, default='metric'): Units ('metric', 'imperial', 'standard')
 
-**Note:** Provide either city name OR coordinates, not both.
+**Returns:** Current weather data including temperature, humidity, pressure, wind, clouds
 
 **Example:**
 ```python
-# By city name
-weather = await get_current_weather(
-    city="London,GB",
-    units="metric"
-)
+# By location name
+get_current_weather(location="Panama City")
 
 # By coordinates
-weather = await get_current_weather(
-    lat=51.5074,
-    lon=-0.1278,
-    units="metric"
-)
+get_current_weather(lat=8.9824, lon=-79.5199)
 ```
 
-**Response includes:**
-- Temperature (current, feels like, min, max)
-- Humidity, pressure, visibility
-- Wind speed and direction
-- Cloud coverage
-- Weather conditions and description
-- Sunrise and sunset times
+### 2. `get_weather_forecast`
 
-#### `get_weather_by_zip`
-Get current weather by ZIP or postal code.
+Get 5-day weather forecast with 3-hour intervals.
 
 **Parameters:**
-- `zip_code` (string, required): ZIP or postal code
-- `country_code` (string, optional): 2-letter country code (e.g., 'US', 'GB', 'CA')
-- `units` (string, optional): Units (default: 'metric')
+- `location` (str, optional): Location name
+- `lat` (float, optional): Latitude coordinate (use with lon)
+- `lon` (float, optional): Longitude coordinate (use with lat)
+- `units` (str, default='metric'): Units
+- `days` (int, optional): Number of days to forecast (max: 5)
 
-**Example:**
-```python
-weather = await get_weather_by_zip(
-    zip_code="10001",
-    country_code="US",
-    units="imperial"
-)
-```
+**Returns:** 5-day forecast data with 3-hour intervals
 
-### Forecast Tools
+### 3. `get_air_quality`
 
-#### `get_forecast`
-Get 5-day weather forecast with 3-hour intervals (up to 40 data points).
-
-**Parameters:**
-- `city` (string, optional): City name
-- `lat` (float, optional): Latitude (use with lon)
-- `lon` (float, optional): Longitude (use with lat)
-- `units` (string, optional): Units (default: 'metric')
-- `cnt` (int, optional): Number of timestamps to return (max: 40)
-
-**Example:**
-```python
-forecast = await get_forecast(
-    city="Paris,FR",
-    units="metric",
-    cnt=10  # Get next 30 hours (10 x 3-hour intervals)
-)
-```
-
-**Response includes:**
-- 5-day forecast data
-- 3-hour interval predictions
-- Temperature, precipitation, wind, clouds
-- Weather conditions for each timestamp
-
-#### `get_hourly_forecast`
-Get hourly weather forecast for 48 hours.
-
-**Parameters:**
-- `lat` (float, required): Latitude coordinate
-- `lon` (float, required): Longitude coordinate
-- `units` (string, optional): Units (default: 'metric')
-- `cnt` (int, optional): Number of hours (max: 96)
-
-**Example:**
-```python
-hourly = await get_hourly_forecast(
-    lat=40.7128,
-    lon=-74.0060,
-    units="imperial",
-    cnt=24  # Next 24 hours
-)
-```
-
-### Weather Alerts Tools
-
-#### `get_weather_alerts`
-Get severe weather alerts and warnings for a location.
-
-**Parameters:**
-- `lat` (float, required): Latitude coordinate
-- `lon` (float, required): Longitude coordinate
-
-**Example:**
-```python
-alerts = await get_weather_alerts(
-    lat=25.7617,
-    lon=-80.1918  # Miami, FL
-)
-```
-
-**Response includes:**
-- Active weather alerts
-- Severity levels
-- Event type (e.g., hurricane, tornado, flood)
-- Start and end times
-- Description and instructions
-
-### Air Quality Tools
-
-#### `get_air_quality`
 Get air quality index and pollutant concentrations.
 
 **Parameters:**
-- `lat` (float, required): Latitude coordinate
-- `lon` (float, required): Longitude coordinate
+- `location` (str, optional): Location name
+- `lat` (float, optional): Latitude coordinate (use with lon)
+- `lon` (float, optional): Longitude coordinate (use with lat)
 
-**Example:**
-```python
-aqi = await get_air_quality(
-    lat=35.6762,
-    lon=139.6503  # Tokyo
-)
-```
+**Returns:** Air quality data with AQI (1=Good to 5=Very Poor) and pollutant levels (CO, NO, NO2, O3, SO2, PM2.5, PM10, NH3)
 
-**Response includes:**
-- Air Quality Index (AQI): 1 (Good) to 5 (Very Poor)
-- Pollutant concentrations:
-  - CO (Carbon monoxide, μg/m³)
-  - NO (Nitrogen monoxide, μg/m³)
-  - NO2 (Nitrogen dioxide, μg/m³)
-  - O3 (Ozone, μg/m³)
-  - SO2 (Sulphur dioxide, μg/m³)
-  - PM2.5 (Fine particles, μg/m³)
-  - PM10 (Coarse particles, μg/m³)
-  - NH3 (Ammonia, μg/m³)
+### 4. `get_uv_index`
 
-### Location Tools
-
-#### `search_city`
-Search for cities by name and get their coordinates.
-
-**Parameters:**
-- `city_name` (string, required): City name to search
-- `limit` (int, optional): Number of results (max: 5, default: 5)
-
-**Example:**
-```python
-cities = await search_city(
-    city_name="Springfield",
-    limit=5
-)
-```
-
-**Response includes:**
-- City name
-- Country code
-- State (if applicable)
-- Latitude and longitude
-- Multiple matches for ambiguous names
-
-### Historical & UV Tools
-
-#### `get_historical_weather`
-Get historical weather data for a specific date (last 5 days).
-
-**Parameters:**
-- `lat` (float, required): Latitude coordinate
-- `lon` (float, required): Longitude coordinate
-- `dt` (int, required): Unix timestamp (UTC) for the date
-- `units` (string, optional): Units (default: 'metric')
-
-**Example:**
-```python
-import time
-
-# Get weather from 3 days ago
-three_days_ago = int(time.time()) - (3 * 24 * 60 * 60)
-
-historical = await get_historical_weather(
-    lat=48.8566,
-    lon=2.3522,  # Paris
-    dt=three_days_ago,
-    units="metric"
-)
-```
-
-#### `get_uv_index`
 Get UV index for a location.
 
 **Parameters:**
-- `lat` (float, required): Latitude coordinate
-- `lon` (float, required): Longitude coordinate
+- `location` (str, optional): Location name
+- `lat` (float, optional): Latitude coordinate (use with lon)
+- `lon` (float, optional): Longitude coordinate (use with lat)
 
-**Example:**
-```python
-uv = await get_uv_index(
-    lat=34.0522,
-    lon=-118.2437  # Los Angeles
-)
-```
+**Returns:** UV index data (0-2: Low, 3-5: Moderate, 6-7: High, 8-10: Very High, 11+: Extreme)
 
-**UV Index Scale:**
-- 0-2: Low
-- 3-5: Moderate
-- 6-7: High
-- 8-10: Very High
-- 11+: Extreme
+### 5. `get_solar_radiation`
 
-#### `get_weather_map`
-Get weather map layer tile URL for visualizations.
+Get solar radiation data for solar energy calculations.
 
 **Parameters:**
-- `layer` (string, required): Layer type ('temp_new', 'precipitation_new', 'clouds_new', 'pressure_new', 'wind_new')
-- `z` (int, required): Zoom level (0-15)
-- `x` (int, required): Tile X coordinate
-- `y` (int, required): Tile Y coordinate
+- `location` (str, optional): Location name
+- `lat` (float, optional): Latitude coordinate (use with lon)
+- `lon` (float, optional): Longitude coordinate (use with lat)
 
-**Example:**
-```python
-map_tile = await get_weather_map(
-    layer="temp_new",
-    z=1,
-    x=1,
-    y=0
-)
-# Use map_tile['tile_url'] to fetch the image
+**Returns:** Solar radiation data including:
+- `avg_daily_kwh_m2`: Average daily solar radiation (kWh/m²)
+- `peak_sun_hours`: Equivalent peak sun hours per day
+- `monthly_averages`: Monthly solar radiation estimates for all 12 months
+- `coordinates`: Location coordinates
+- `cloud_cover_factor`: Cloud cover reduction factor
+- `uv_index_avg`: Average UV index
+
+**Response Format:**
+```json
+{
+  "location": "Panama City, Panama",
+  "coordinates": {"lat": 8.9824, "lon": -79.5199},
+  "avg_daily_kwh_m2": 5.2,
+  "peak_sun_hours": 5.2,
+  "monthly_averages": {
+    "january": 5.8,
+    "february": 6.1,
+    ...
+  },
+  "source": "OpenWeatherMap"
+}
 ```
 
-## Units of Measurement
+### 6. `get_location_coordinates`
 
-### Metric (default)
-- Temperature: Celsius
-- Wind speed: meter/sec
-- Pressure: hPa
-- Visibility: meters
+Convert location name to geographic coordinates.
 
-### Imperial
-- Temperature: Fahrenheit
-- Wind speed: miles/hour
-- Pressure: hPa
-- Visibility: meters
+**Parameters:**
+- `location` (str, required): Location name
 
-### Standard (Kelvin)
-- Temperature: Kelvin
-- Wind speed: meter/sec
-- Pressure: hPa
-- Visibility: meters
+**Returns:** Coordinates and location information including lat, lon, country
 
-## Coverage
+**Supports:**
+- Known Panama locations (Panama City, David, Colón, Santiago, Chitré, La Chorrera, Bocas del Toro, Penonomé)
+- Any city worldwide via OpenWeatherMap geocoding
 
-- **Cities**: 200,000+ cities worldwide
-- **Countries**: All countries
-- **Languages**: 40+ languages for city names
-- **Update Frequency**: Every 10 minutes for most locations
-- **Historical Data**: Up to 40 years (paid plans)
+## Panama Location Presets
 
-## Rate Limits and Pricing
+The server includes built-in coordinates for major Panama cities:
 
-### Free Tier
-- **1,000 calls/day**
-- **60 calls/minute**
-- Current weather and 5-day forecast
-- Basic historical data (5 days)
-- Air pollution data
+| City | Latitude | Longitude |
+|------|----------|-----------|
+| Panama City | 8.9824 | -79.5199 |
+| David | 8.4270 | -82.4278 |
+| Colón | 9.3592 | -79.9009 |
+| Santiago | 8.1000 | -80.9833 |
+| Chitré | 7.9614 | -80.4289 |
+| La Chorrera | 8.8800 | -79.7833 |
+| Bocas del Toro | 9.3400 | -82.2400 |
+| Penonomé | 8.5167 | -80.3500 |
 
-### Startup Plan ($40/month)
-- 100,000 calls/month
-- 600 calls/minute
-- 16-day daily forecast
-- 5-day 3-hour forecast
-- Weather alerts
+## Development
 
-### Developer Plan ($120/month)
-- 300,000 calls/month
-- 1,000 calls/minute
-- All Startup features
-- 48-hour hourly forecast
-- 4-day 1-hour forecast
+### Available Make Commands
 
-### Professional Plan ($600/month)
-- 1,000,000 calls/month
-- 3,000 calls/minute
-- All Developer features
-- 30-year historical data
-- Weather maps
+```bash
+make help          # Show all commands
+make install       # Install dependencies
+make dev-install   # Install with dev dependencies
+make format        # Format code with ruff
+make lint          # Lint code with ruff
+make lint-fix      # Lint and auto-fix issues
+make typecheck     # Type check with mypy
+make test          # Run tests
+make test-cov      # Run tests with coverage
+make clean         # Clean up artifacts
+make run           # Run server (stdio)
+make run-http      # Run server (HTTP)
+make check         # Run all checks (lint + typecheck + test)
+make all           # Full workflow
+```
 
-### Enterprise (Custom pricing)
-- Unlimited calls
-- Custom rate limits
-- Full historical archive (40+ years)
-- Dedicated support
-- SLA guarantees
+### Running Tests
 
-Visit [openweathermap.org/price](https://openweathermap.org/price) for current rates.
+```bash
+# Run all tests
+make test
 
-## Weather Data Available
+# Run with coverage
+make test-cov
 
-### Temperature
-- Current temperature
-- Feels like temperature
-- Minimum and maximum temperature
-- Temperature at different altitudes
+# Run specific test file
+uv run pytest tests/test_server.py -v
 
-### Atmospheric Conditions
-- Atmospheric pressure (sea level and ground level)
-- Humidity percentage
-- Visibility distance
-- Cloud coverage percentage
+# Run specific test
+uv run pytest tests/test_server.py::TestMCPTools::test_get_solar_radiation -v
+```
 
-### Wind
-- Wind speed
-- Wind direction (degrees)
-- Wind gust speed
+### Code Quality
 
-### Precipitation
-- Rain volume (last 1h, last 3h)
-- Snow volume (last 1h, last 3h)
-- Probability of precipitation
+```bash
+# Format code
+make format
 
-### Time Data
-- Sunrise time
-- Sunset time
-- Timezone offset
-- Data calculation time
+# Lint code
+make lint
 
-## Error Handling
+# Type check
+make typecheck
 
-Common error codes:
-- **401 Unauthorized**: Invalid API key
-- **404 Not Found**: City/location not found
-- **429 Too Many Requests**: Rate limit exceeded
-- **500 Server Error**: OpenWeatherMap service issue
+# Run all quality checks
+make check
+```
 
-**Rate Limit Headers:**
-- `X-RateLimit-Limit`: Total requests allowed
-- `X-RateLimit-Remaining`: Requests remaining
+## Solar Radiation Calculations
 
-## Best Practices
+The `get_solar_radiation` tool calculates solar radiation using:
 
-1. **Cache responses**: Weather data updates every 10 minutes
-2. **Use coordinates**: More accurate than city names
-3. **Batch requests**: Group multiple locations when possible
-4. **Monitor limits**: Track your API usage daily
-5. **Handle errors**: Implement retry logic with exponential backoff
-6. **Use appropriate units**: Match user's location/preference
+1. **Latitude**: Affects solar angle and day length
+   - Equatorial (0-10°): 5.8 kWh/m²/day base
+   - Tropical (10-23.5°): 5.5 kWh/m²/day base
+   - Subtropical (23.5-35°): 4.5 kWh/m²/day base
 
-## City Name Format
+2. **Cloud Cover**: Reduces solar radiation by up to 75%
+   - Clear sky (0% clouds): Full radiation
+   - Overcast (100% clouds): 25% radiation
 
-When using city names:
-- Format: `{city name},{country code}`
-- Examples: `London,GB`, `New York,US`, `Tokyo,JP`
-- State codes: `Springfield,IL,US` (for US cities)
-- Use comma separation for accuracy
+3. **UV Index**: Correlates with solar intensity
+   - Used as adjustment factor (0.7-1.5x)
 
-## Geocoding
+4. **Seasonal Patterns**: Monthly variation based on latitude
+   - Northern hemisphere: Peak in June
+   - Southern hemisphere: Peak in December
 
-To convert addresses or place names to coordinates:
-1. Use `search_city` to find coordinates
-2. Use coordinates for more accurate weather queries
-3. Store coordinates for frequently accessed locations
+Formula:
+```
+radiation = base_radiation × (1 - cloud_cover × 0.75) × uv_factor × seasonal_factor
+```
 
 ## API Documentation
 
-For detailed information about OpenWeatherMap API:
+For detailed OpenWeatherMap API documentation:
 - [API Documentation](https://openweathermap.org/api)
 - [Current Weather](https://openweathermap.org/current)
-- [Forecast API](https://openweathermap.org/forecast5)
+- [5-day Forecast](https://openweathermap.org/forecast5)
 - [Air Pollution API](https://openweathermap.org/api/air-pollution)
-- [Weather Alerts](https://openweathermap.org/api/one-call-3)
-- [Historical Data](https://openweathermap.org/api/one-call-3#history)
+- [UV Index](https://openweathermap.org/api/uvi)
 
-## Use Cases
+## Requirements
 
-- **Weather Apps**: Build comprehensive weather applications
-- **Travel Planning**: Check weather for destinations
-- **Agriculture**: Monitor weather for farming decisions
-- **Event Planning**: Plan outdoor events with weather data
-- **Transportation**: Route planning based on weather
-- **Energy Management**: Optimize energy based on weather
-- **Insurance**: Weather data for claims processing
-- **Research**: Climate and weather pattern analysis
+- Python >=3.10
+- aiohttp >=3.12.15
+- fastapi >=0.117.1
+- fastmcp >=2.12.4
+- pydantic >=2.0.0
+- uvicorn >=0.32.1
+
+## Rate Limits
+
+### Free Tier
+- 1,000 calls/day
+- 60 calls/minute
+- Current weather and 5-day forecast
+- Air pollution data
+- UV index
+
+For higher limits, see [OpenWeatherMap pricing](https://openweathermap.org/price).
+
+## Health Check
+
+When running in HTTP mode, a health check endpoint is available:
+
+```bash
+curl http://localhost:8000/health
+# {"status": "healthy", "service": "openweathermap-mcp"}
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run `make check` to ensure quality
+5. Submit a pull request
 
 ## Support
 
-- [OpenWeatherMap FAQ](https://openweathermap.org/faq)
-- [API Support](https://openweathermap.org/api-support)
-- [Community Forum](https://openweathermap.org/community)
+For issues or questions:
+- OpenWeatherMap API: [support.openweathermap.org](https://support.openweathermap.org)
+- MCP Server: Create an issue in the repository
+
+## License
+
+MIT
+
+## Links
+
+Part of the [NimbleTools Registry](https://github.com/nimbletoolsinc/mcp-registry) - an open source collection of production-ready MCP servers. For enterprise deployment, check out [NimbleBrain](https://www.nimblebrain.ai).
+
+- [OpenWeather Map API](https://openweathermap.org/api)
+- [FastMCP Documentation](https://github.com/jlowin/fastmcp)
+- [MCP Documentation](https://modelcontextprotocol.io)

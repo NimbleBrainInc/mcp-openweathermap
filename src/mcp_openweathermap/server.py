@@ -4,8 +4,11 @@ Provides tools for accessing weather data, forecasts, alerts, and air quality in
 """
 
 import os
-from typing import Optional
+from typing import Any
+
 import httpx
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from fastmcp import FastMCP
 
 # Initialize FastMCP server
@@ -17,7 +20,14 @@ BASE_URL = "https://api.openweathermap.org/data/2.5"
 GEO_URL = "https://api.openweathermap.org/geo/1.0"
 
 
-def get_params(units: str = "metric") -> dict:
+# Health endpoint for HTTP transport
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
+    """Health check endpoint for container monitoring."""
+    return JSONResponse({"status": "healthy", "service": "mcp-openweathermap"})
+
+
+def get_params(units: str = "metric") -> dict[str, Any]:
     """Get base parameters for OpenWeatherMap API requests."""
     if not OPENWEATHERMAP_API_KEY:
         raise ValueError("OPENWEATHERMAP_API_KEY environment variable is required")
@@ -29,16 +39,16 @@ def get_params(units: str = "metric") -> dict:
 
 @mcp.tool()
 async def get_current_weather(
-    city: Optional[str] = None,
-    lat: Optional[float] = None,
-    lon: Optional[float] = None,
-    units: str = "metric"
-) -> dict:
+    location: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
+    units: str = "metric",
+) -> dict[str, Any]:
     """
     Get current weather conditions for a location.
 
     Args:
-        city: City name (e.g., 'London', 'New York,US', 'Tokyo,JP')
+        location: Location name (e.g., 'London', 'New York,US', 'Panama City, Panama')
         lat: Latitude coordinate (use with lon)
         lon: Longitude coordinate (use with lat)
         units: Units of measurement ('metric' for Celsius, 'imperial' for Fahrenheit, 'standard' for Kelvin)
@@ -46,13 +56,13 @@ async def get_current_weather(
     Returns:
         Dictionary containing current weather data including temperature, humidity, pressure, wind, clouds
 
-    Note: Provide either city name OR coordinates (lat/lon), not both
+    Note: Provide either location name OR coordinates (lat/lon), not both
     """
     async with httpx.AsyncClient() as client:
         params = get_params(units)
 
-        if city:
-            params["q"] = city
+        if location:
+            params["q"] = location
         elif lat is not None and lon is not None:
             params["lat"] = lat
             params["lon"] = lon
@@ -69,12 +79,12 @@ async def get_current_weather(
 
 @mcp.tool()
 async def get_forecast(
-    city: Optional[str] = None,
-    lat: Optional[float] = None,
-    lon: Optional[float] = None,
+    city: str | None = None,
+    lat: float | None = None,
+    lon: float | None = None,
     units: str = "metric",
-    cnt: Optional[int] = None
-) -> dict:
+    cnt: int | None = None,
+) -> dict[str, Any]:
     """
     Get 5-day weather forecast with 3-hour intervals (up to 40 data points).
 
@@ -114,11 +124,8 @@ async def get_forecast(
 
 @mcp.tool()
 async def get_hourly_forecast(
-    lat: float,
-    lon: float,
-    units: str = "metric",
-    cnt: Optional[int] = None
-) -> dict:
+    lat: float, lon: float, units: str = "metric", cnt: int | None = None
+) -> dict[str, Any]:
     """
     Get hourly weather forecast for 48 hours (requires coordinates).
 
@@ -148,10 +155,7 @@ async def get_hourly_forecast(
 
 
 @mcp.tool()
-async def get_weather_alerts(
-    lat: float,
-    lon: float
-) -> dict:
+async def get_weather_alerts(lat: float, lon: float) -> dict[str, Any]:
     """
     Get severe weather alerts for a location.
 
@@ -170,7 +174,7 @@ async def get_weather_alerts(
         }
 
         response = await client.get(
-            f"https://api.openweathermap.org/data/3.0/onecall",
+            "https://api.openweathermap.org/data/3.0/onecall",
             params=params,
         )
         response.raise_for_status()
@@ -186,10 +190,7 @@ async def get_weather_alerts(
 
 
 @mcp.tool()
-async def get_air_quality(
-    lat: float,
-    lon: float
-) -> dict:
+async def get_air_quality(lat: float, lon: float) -> dict[str, Any]:
     """
     Get air quality index and pollutant data for a location.
 
@@ -218,10 +219,8 @@ async def get_air_quality(
 
 @mcp.tool()
 async def get_weather_by_zip(
-    zip_code: str,
-    country_code: Optional[str] = None,
-    units: str = "metric"
-) -> dict:
+    zip_code: str, country_code: str | None = None, units: str = "metric"
+) -> dict[str, Any]:
     """
     Get current weather by ZIP/postal code.
 
@@ -250,10 +249,7 @@ async def get_weather_by_zip(
 
 
 @mcp.tool()
-async def search_city(
-    city_name: str,
-    limit: int = 5
-) -> dict:
+async def search_city(city_name: str, limit: int = 5) -> dict[str, Any]:
     """
     Search for cities by name and get their coordinates.
 
@@ -280,12 +276,7 @@ async def search_city(
 
 
 @mcp.tool()
-async def get_historical_weather(
-    lat: float,
-    lon: float,
-    dt: int,
-    units: str = "metric"
-) -> dict:
+async def get_historical_weather(lat: float, lon: float, dt: int, units: str = "metric") -> dict[str, Any]:
     """
     Get historical weather data for a specific date (last 5 days).
 
@@ -305,7 +296,7 @@ async def get_historical_weather(
         params["dt"] = dt
 
         response = await client.get(
-            f"https://api.openweathermap.org/data/3.0/onecall/timemachine",
+            "https://api.openweathermap.org/data/3.0/onecall/timemachine",
             params=params,
         )
         response.raise_for_status()
@@ -313,10 +304,7 @@ async def get_historical_weather(
 
 
 @mcp.tool()
-async def get_uv_index(
-    lat: float,
-    lon: float
-) -> dict:
+async def get_uv_index(lat: float, lon: float) -> dict[str, Any]:
     """
     Get UV index for a location.
 
@@ -343,12 +331,7 @@ async def get_uv_index(
 
 
 @mcp.tool()
-async def get_weather_map(
-    layer: str,
-    z: int,
-    x: int,
-    y: int
-) -> dict:
+async def get_weather_map(layer: str, z: int, x: int, y: int) -> dict[str, Any]:
     """
     Get weather map layer tile data (for visualizations).
 
@@ -369,8 +352,12 @@ async def get_weather_map(
         "x": x,
         "y": y,
         "tile_url": tile_url,
-        "info": "Use this URL to fetch the weather map tile image"
+        "info": "Use this URL to fetch the weather map tile image",
     }
+
+
+# Create ASGI application for uvicorn
+app = mcp.streamable_http_app()
 
 
 if __name__ == "__main__":
