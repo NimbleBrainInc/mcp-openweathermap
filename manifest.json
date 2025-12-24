@@ -1,0 +1,19 @@
+{
+  "manifest_version": "0.3",
+  "name": "ai.nimbletools/openweathermap",
+  "version": "1.0.0",
+  "description": "OpenWeatherMap MCP Server for weather data, forecasts, alerts, and air quality",
+  "author": {
+    "name": "NimbleBrain Inc"
+  },
+  "server": {
+    "type": "python",
+    "entry_point": "mcp_openweathermap/server.py",
+    "mcp_config": {
+      "command": "python",
+      "args": [
+        "${__dirname}/mcp_openweathermap/server.py"
+      ]
+    }
+  }
+}

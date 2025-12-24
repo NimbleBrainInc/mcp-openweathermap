@@ -1,0 +1,33 @@
+# Development environment
+.venv/
+.git/
+.github/
+.pytest_cache/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.coverage
+
+# Test files
+tests/
+e2e/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+*.mcpb
+
+# Dev config
+Makefile
+pytest.ini
+.env
+.env.*
+
+# Lock files
+uv.lock
+
+# IDE
+.vscode/
+.idea/

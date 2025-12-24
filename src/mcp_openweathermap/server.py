@@ -276,7 +276,9 @@ async def search_city(city_name: str, limit: int = 5) -> dict[str, Any]:
 
 
 @mcp.tool()
-async def get_historical_weather(lat: float, lon: float, dt: int, units: str = "metric") -> dict[str, Any]:
+async def get_historical_weather(
+    lat: float, lon: float, dt: int, units: str = "metric"
+) -> dict[str, Any]:
     """
     Get historical weather data for a specific date (last 5 days).
 
@@ -357,7 +359,7 @@ async def get_weather_map(layer: str, z: int, x: int, y: int) -> dict[str, Any]:
 
 
 # Create ASGI application for uvicorn
-app = mcp.streamable_http_app()
+app = mcp.http_app()
 
 
 if __name__ == "__main__":
