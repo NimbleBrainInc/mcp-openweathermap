@@ -1,7 +1,7 @@
 {
   "manifest_version": "0.3",
   "name": "ai.nimbletools/openweathermap",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "OpenWeatherMap MCP Server for weather data, forecasts, alerts, and air quality",
   "author": {
     "name": "NimbleBrain Inc"
