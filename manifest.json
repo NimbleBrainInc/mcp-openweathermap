@@ -1,19 +1,29 @@
 {
   "manifest_version": "0.3",
-  "name": "ai.nimbletools/openweathermap",
-  "version": "0.1.0",
+  "name": "@nimblebraininc/openweathermap",
+  "version": "0.1.1",
   "description": "OpenWeatherMap MCP Server for weather data, forecasts, alerts, and air quality",
   "author": {
     "name": "NimbleBrain Inc"
   },
+  "user_config": {
+    "api_key": {
+      "type": "string",
+      "title": "OpenWeatherMap API Key",
+      "description": "Your OpenWeatherMap API key from https://openweathermap.org/api",
+      "sensitive": true,
+      "required": true
+    }
+  },
   "server": {
     "type": "python",
-    "entry_point": "mcp_openweathermap/server.py",
+    "entry_point": "mcp_openweathermap.server",
     "mcp_config": {
       "command": "python",
-      "args": [
-        "${__dirname}/mcp_openweathermap/server.py"
-      ]
+      "args": ["-m", "mcp_openweathermap.server"],
+      "env": {
+        "OPENWEATHERMAP_API_KEY": "${user_config.api_key}"
+      }
     }
   }
 }
