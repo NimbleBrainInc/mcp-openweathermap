@@ -143,18 +143,13 @@ async def test_mcp_tools_list(docker_container):
             tool_names = {tool.name for tool in tools_list}
             print(f"Found {len(tool_names)} tools: {sorted(tool_names)}")
 
-            # Verify all expected tools are registered
+            # Verify all expected tools are registered (5 tools: 4 intent-based + search_location)
             expected_tools = {
-                "get_current_weather",
+                "search_location",
+                "check_weather",
                 "get_forecast",
-                "get_hourly_forecast",
-                "get_weather_alerts",
-                "get_air_quality",
-                "get_weather_by_zip",
-                "search_city",
+                "check_air_quality",
                 "get_historical_weather",
-                "get_uv_index",
-                "get_weather_map",
             }
 
             missing_tools = expected_tools - tool_names
@@ -195,14 +190,14 @@ async def test_mcp_tool_execution(docker_container):
             # Initialize the connection
             await session.initialize()
 
-            # Test search_city tool (doesn't require coordinates)
+            # Test check_weather tool with a location
             result = await session.call_tool(
-                "search_city",
-                arguments={"city_name": "London", "limit": 1},
+                "check_weather",
+                arguments={"location": "London"},
             )
 
             assert result.content, "No content in tool execution result"
-            print("✓ Successfully executed search_city tool")
+            print("✓ Successfully executed check_weather tool")
 
 
 def test_container_shutdown(docker_container):

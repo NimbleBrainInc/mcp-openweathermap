@@ -1,4 +1,4 @@
-"""OpenWeatherMap MCP Server - S-Tier Architecture."""
+"""OpenWeatherMap MCP Server - Intent-based weather tools."""
 
 from .api_client import OpenWeatherMapAPIError, OpenWeatherMapClient
 from .api_models import (
@@ -8,7 +8,6 @@ from .api_models import (
     GeocodingResult,
     OneCallResponse,
     SolarRadiationData,
-    UVIndexResponse,
 )
 from .server import app, mcp
 
@@ -20,7 +19,6 @@ __all__ = [
     "CurrentWeatherResponse",
     "ForecastResponse",
     "AirQualityResponse",
-    "UVIndexResponse",
     "OneCallResponse",
     "SolarRadiationData",
     "GeocodingResult",

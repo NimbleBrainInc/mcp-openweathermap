@@ -12,7 +12,6 @@ from .api_models import (
     ForecastResponse,
     GeocodingResult,
     OneCallResponse,
-    UVIndexResponse,
 )
 
 
@@ -177,20 +176,6 @@ class OpenWeatherMapClient:
         data = await self._request("GET", f"{self.base_url}/air_pollution", params=params)
         return AirQualityResponse(**data)
 
-    async def get_uv_index(self, lat: float, lon: float) -> UVIndexResponse:
-        """Get UV index for a location.
-
-        Args:
-            lat: Latitude coordinate
-            lon: Longitude coordinate
-
-        Returns:
-            UV index data
-        """
-        params = {"lat": lat, "lon": lon}
-        data = await self._request("GET", f"{self.base_url}/uvi", params=params)
-        return UVIndexResponse(**data)
-
     async def get_one_call(
         self, lat: float, lon: float, exclude: str | None = None
     ) -> OneCallResponse:
@@ -258,3 +243,106 @@ class OpenWeatherMapClient:
             params["cnt"] = cnt
         data = await self._request("GET", f"{self.base_url}/forecast", params=params)
         return ForecastResponse(**data)
+
+    async def get_one_call_timemachine(
+        self, lat: float, lon: float, dt: int, units: str = "metric"
+    ) -> OneCallResponse:
+        """Get historical weather data using One Call API 3.0 timemachine.
+
+        Args:
+            lat: Latitude coordinate
+            lon: Longitude coordinate
+            dt: Unix timestamp (UTC) for the historical date
+            units: Units of measurement (metric, imperial, standard)
+
+        Returns:
+            Historical weather data
+        """
+        params: dict[str, Any] = {"lat": lat, "lon": lon, "dt": dt, "units": units}
+        data = await self._request(
+            "GET", f"{self.onecall_url}/onecall/timemachine", params=params
+        )
+        return OneCallResponse(**data)
+
+    async def resolve_location(self, location: str) -> tuple[float, float]:
+        """Resolve location to coordinates. Accepts:
+        - City name: "London", "New York, US"
+        - Coordinates: "51.5,-0.1" or "51.5, -0.1"
+
+        Args:
+            location: Location string (city name or coordinates)
+
+        Returns:
+            Tuple of (latitude, longitude)
+
+        Raises:
+            OpenWeatherMapAPIError: If location cannot be resolved
+        """
+        # Check if already coordinates (format: "lat,lon" or "lat, lon")
+        if "," in location:
+            parts = location.split(",")
+            if len(parts) == 2:
+                try:
+                    lat = float(parts[0].strip())
+                    lon = float(parts[1].strip())
+                    if -90 <= lat <= 90 and -180 <= lon <= 180:
+                        return lat, lon
+                except ValueError:
+                    pass  # Not coordinates, try geocoding
+
+        # Geocode the location name
+        results = await self.geocode_location(location, limit=1)
+        if not results:
+            raise OpenWeatherMapAPIError(404, f"Location not found: {location}")
+        return results[0].lat, results[0].lon
+
+    async def get_forecast_with_fallback(
+        self, lat: float, lon: float, units: str = "metric"
+    ) -> dict[str, Any]:
+        """Get forecast with graceful degradation.
+
+        Tries One Call API first for rich data (hourly, daily, alerts).
+        Falls back to free 5-day forecast on 401/403 errors.
+
+        Args:
+            lat: Latitude coordinate
+            lon: Longitude coordinate
+            units: Units of measurement (metric, imperial, standard)
+
+        Returns:
+            Forecast data with 'source' field indicating data tier
+        """
+        try:
+            one_call_data = await self.get_one_call(lat, lon)
+            return {
+                "source": "one_call",
+                "current": one_call_data.current,
+                "hourly": (
+                    [h.model_dump() for h in one_call_data.hourly]
+                    if one_call_data.hourly
+                    else None
+                ),
+                "daily": (
+                    [d.model_dump() for d in one_call_data.daily]
+                    if one_call_data.daily
+                    else None
+                ),
+                "alerts": (
+                    [a.model_dump() for a in one_call_data.alerts]
+                    if one_call_data.alerts
+                    else []
+                ),
+                "timezone": one_call_data.timezone,
+            }
+        except OpenWeatherMapAPIError as e:
+            if e.status in (401, 403):
+                # Fall back to free tier
+                forecast_data = await self.get_forecast(lat, lon, units)
+                return {
+                    "source": "free_tier",
+                    "forecast_list": [f.model_dump() for f in forecast_data.forecast_list],
+                    "city": forecast_data.city.model_dump(),
+                    "alerts": [],
+                    "note": "Hourly forecast and alerts require One Call API subscription",
+                }
+            raise

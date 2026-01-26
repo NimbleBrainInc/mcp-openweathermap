@@ -15,24 +15,25 @@ Production-ready MCP server for accessing comprehensive weather data from OpenWe
 
 ## Features
 
-- **Enterprise ready**: Production-ready with separation of concerns, strong typing, and comprehensive testing
-- **Full API Coverage**: Current weather, forecasts, air quality, UV index
+- **Hybrid Tool Design**: 5 tools balancing convenience with LLM reasoning capability
+- **Graceful Degradation**: Automatically uses One Call API when available, falls back to free tier
+- **Smart Fallback Pattern**: When location lookup fails, error message guides LLM to use `search_location`
+- **Flexible Input**: All weather tools accept either location string OR direct lat/lon coordinates
 - **Strongly Typed**: All responses use Pydantic models with full type safety
 - **HTTP & Stdio Transport**: Supports both streamable-http and stdio for Claude Desktop
 - **Async/Await**: Built on aiohttp for high performance
 - **Type Safe**: Full mypy strict mode compliance
-- **Comprehensive Tests**: 100% coverage with pytest + AsyncMock
-- **Panama Locations**: Built-in coordinates for major Panama cities
+- **Comprehensive Tests**: Full coverage with pytest + AsyncMock
 
 ## Architecture
 
 ```
 src/mcp_openweathermap/
 ├── __init__.py          # Package exports
-├── server.py            # FastMCP server with 6 MCP tools
-├── api_client.py        # OpenWeatherMapClient with aiohttp
+├── server.py            # FastMCP server with 4 intent-based tools
+├── api_client.py        # OpenWeatherMapClient with graceful degradation
 ├── api_models.py        # Pydantic models for type safety
-└── utils.py             # Helper functions and solar calculations
+└── utils.py             # Helper functions
 
 tests/
 ├── test_server.py       # MCP tool tests
@@ -114,122 +115,159 @@ docker run -p 8000:8000 -e OPENWEATHERMAP_API_KEY=your_key mcp-openweathermap
 
 ## Available MCP Tools
 
-### 1. `get_current_weather`
+### 1. `search_location`
 
-Get current weather conditions for a location.
+Resolve location query to coordinates. Use when direct location lookup fails or for ambiguous queries.
 
 **Parameters:**
-- `location` (str, optional): Location name (e.g., 'Panama City', 'London,GB')
-- `lat` (float, optional): Latitude coordinate (use with lon)
-- `lon` (float, optional): Longitude coordinate (use with lat)
-- `units` (str, default='metric'): Units ('metric', 'imperial', 'standard')
+- `query` (str): Location search query (city name, landmark, etc.)
+- `limit` (int, default=5): Max results to return
 
-**Returns:** Current weather data including temperature, humidity, pressure, wind, clouds
+**Returns:** List of matching locations with name, state, country, lat, lon
 
 **Example:**
 ```python
-# By location name
-get_current_weather(location="Panama City")
+# Disambiguate "Springfield" (exists in many US states)
+search_location(query="Springfield")
+# Returns multiple candidates - LLM picks the right one
 
-# By coordinates
-get_current_weather(lat=8.9824, lon=-79.5199)
+# Find Waimea in Hawaii (direct lookup fails for "Waimea, HI")
+search_location(query="Waimea")
+# Returns candidates in Hawaii and elsewhere
 ```
 
-### 2. `get_weather_forecast`
+### 2. `check_weather`
 
-Get 5-day weather forecast with 3-hour intervals.
-
-**Parameters:**
-- `location` (str, optional): Location name
-- `lat` (float, optional): Latitude coordinate (use with lon)
-- `lon` (float, optional): Longitude coordinate (use with lat)
-- `units` (str, default='metric'): Units
-- `days` (int, optional): Number of days to forecast (max: 5)
-
-**Returns:** 5-day forecast data with 3-hour intervals
-
-### 3. `get_air_quality`
-
-Get air quality index and pollutant concentrations.
+Get current weather conditions. Pass location string OR lat/lon coordinates.
 
 **Parameters:**
-- `location` (str, optional): Location name
-- `lat` (float, optional): Latitude coordinate (use with lon)
-- `lon` (float, optional): Longitude coordinate (use with lat)
+- `location` (str, optional): City name (e.g., 'London', 'Tokyo')
+- `lat` (float, optional): Latitude (use with lon instead of location)
+- `lon` (float, optional): Longitude (use with lat instead of location)
+- `units` (str, default='metric'): Temperature units ('metric', 'imperial', 'standard')
 
-**Returns:** Air quality data with AQI (1=Good to 5=Very Poor) and pollutant levels (CO, NO, NO2, O3, SO2, PM2.5, PM10, NH3)
+**Returns:** Current temperature, humidity, wind, weather conditions, and location info
 
-### 4. `get_uv_index`
+**Example:**
+```python
+# By city name (fast path)
+check_weather(location="London")
 
-Get UV index for a location.
+# By coordinates (precise path - use after search_location)
+check_weather(lat=20.02, lon=-155.66)
+
+# With imperial units
+check_weather(location="Tokyo", units="imperial")
+```
+
+**Fallback Pattern:** If location lookup fails, error suggests using `search_location` first.
+
+### 3. `get_forecast`
+
+Get weather forecast. Pass location string OR lat/lon coordinates.
 
 **Parameters:**
-- `location` (str, optional): Location name
-- `lat` (float, optional): Latitude coordinate (use with lon)
-- `lon` (float, optional): Longitude coordinate (use with lat)
+- `location` (str, optional): City name
+- `lat` (float, optional): Latitude
+- `lon` (float, optional): Longitude
+- `units` (str, default='metric'): Temperature units
 
-**Returns:** UV index data (0-2: Low, 3-5: Moderate, 6-7: High, 8-10: Very High, 11+: Extreme)
+**Returns:** Forecast data with `source` field indicating tier:
+- `one_call`: Hourly (48h) + daily (8-day) forecasts with weather alerts
+- `free_tier`: 5-day forecast with 3-hour intervals (automatic fallback)
 
-### 5. `get_solar_radiation`
-
-Get solar radiation data for solar energy calculations.
-
-**Parameters:**
-- `location` (str, optional): Location name
-- `lat` (float, optional): Latitude coordinate (use with lon)
-- `lon` (float, optional): Longitude coordinate (use with lat)
-
-**Returns:** Solar radiation data including:
-- `avg_daily_kwh_m2`: Average daily solar radiation (kWh/m²)
-- `peak_sun_hours`: Equivalent peak sun hours per day
-- `monthly_averages`: Monthly solar radiation estimates for all 12 months
-- `coordinates`: Location coordinates
-- `cloud_cover_factor`: Cloud cover reduction factor
-- `uv_index_avg`: Average UV index
-
-**Response Format:**
+**Example Response (One Call):**
 ```json
 {
-  "location": "Panama City, Panama",
-  "coordinates": {"lat": 8.9824, "lon": -79.5199},
-  "avg_daily_kwh_m2": 5.2,
-  "peak_sun_hours": 5.2,
-  "monthly_averages": {
-    "january": 5.8,
-    "february": 6.1,
-    ...
-  },
-  "source": "OpenWeatherMap"
+  "source": "one_call",
+  "hourly": [...],
+  "daily": [...],
+  "alerts": [],
+  "timezone": "Europe/London"
 }
 ```
 
-### 6. `get_location_coordinates`
+**Example Response (Free Tier Fallback):**
+```json
+{
+  "source": "free_tier",
+  "forecast_list": [...],
+  "city": {"name": "London"},
+  "alerts": [],
+  "note": "Hourly forecast and alerts require One Call API subscription"
+}
+```
 
-Convert location name to geographic coordinates.
+### 4. `check_air_quality`
+
+Get air quality index and pollutant levels. Pass location string OR lat/lon coordinates.
 
 **Parameters:**
-- `location` (str, required): Location name
+- `location` (str, optional): City name
+- `lat` (float, optional): Latitude
+- `lon` (float, optional): Longitude
 
-**Returns:** Coordinates and location information including lat, lon, country
+**Returns:** Air Quality Index (1=Good to 5=Very Poor) and concentrations of CO, NO, NO2, O3, SO2, PM2.5, PM10, NH3
 
-**Supports:**
-- Known Panama locations (Panama City, David, Colón, Santiago, Chitré, La Chorrera, Bocas del Toro, Penonomé)
-- Any city worldwide via OpenWeatherMap geocoding
+### 5. `get_historical_weather`
 
-## Panama Location Presets
+Get historical weather data for a past date. Requires One Call API subscription.
 
-The server includes built-in coordinates for major Panama cities:
+**Parameters:**
+- `date` (str, required): Date in YYYY-MM-DD format (within approximately last 5 days)
+- `location` (str, optional): City name
+- `lat` (float, optional): Latitude
+- `lon` (float, optional): Longitude
+- `units` (str, default='metric'): Temperature units
 
-| City | Latitude | Longitude |
-|------|----------|-----------|
-| Panama City | 8.9824 | -79.5199 |
-| David | 8.4270 | -82.4278 |
-| Colón | 9.3592 | -79.9009 |
-| Santiago | 8.1000 | -80.9833 |
-| Chitré | 7.9614 | -80.4289 |
-| La Chorrera | 8.8800 | -79.7833 |
-| Bocas del Toro | 9.3400 | -82.2400 |
-| Penonomé | 8.5167 | -80.3500 |
+**Returns:** Historical weather data or helpful error if subscription not available
+
+**Example Response (Success):**
+```json
+{
+  "source": "one_call",
+  "lat": 51.5,
+  "lon": -0.1,
+  "timezone": "Europe/London",
+  "current": {"temp": 12.5, ...}
+}
+```
+
+**Example Response (No Subscription):**
+```json
+{
+  "error": "Historical weather requires One Call API subscription",
+  "subscription_url": "https://openweathermap.org/api/one-call-3"
+}
+```
+
+## LLM Fallback Pattern
+
+The tools are designed so that when direct location lookup fails, the LLM can reason about alternatives:
+
+1. **Try direct**: `check_weather(location="Waimea, HI")` → fails with hint
+2. **Search**: `search_location(query="Waimea")` → returns candidates
+3. **Pick & retry**: `check_weather(lat=20.02, lon=-155.66)` → succeeds
+
+This pattern handles:
+- US state abbreviations ("HI" vs "Hawaii")
+- Country code variations ("UK" vs "GB")
+- Ambiguous locations (multiple "Springfield"s)
+
+## API Tiers
+
+| Feature | Free Tier | One Call API |
+|---------|-----------|--------------|
+| Current weather | Yes | Yes |
+| 5-day/3-hour forecast | Yes | Yes |
+| Hourly forecast (48h) | No | Yes |
+| Daily forecast (8 days) | No | Yes |
+| Weather alerts | No | Yes |
+| Historical data | No | Yes |
+| Air quality | Yes | Yes |
+| Rate limit | 1M calls/month | 1000 free/day |
+
+The server automatically detects your API tier and uses the best available data.
 
 ## Development
 
@@ -284,39 +322,14 @@ make typecheck
 make check
 ```
 
-## Solar Radiation Calculations
-
-The `get_solar_radiation` tool calculates solar radiation using:
-
-1. **Latitude**: Affects solar angle and day length
-   - Equatorial (0-10°): 5.8 kWh/m²/day base
-   - Tropical (10-23.5°): 5.5 kWh/m²/day base
-   - Subtropical (23.5-35°): 4.5 kWh/m²/day base
-
-2. **Cloud Cover**: Reduces solar radiation by up to 75%
-   - Clear sky (0% clouds): Full radiation
-   - Overcast (100% clouds): 25% radiation
-
-3. **UV Index**: Correlates with solar intensity
-   - Used as adjustment factor (0.7-1.5x)
-
-4. **Seasonal Patterns**: Monthly variation based on latitude
-   - Northern hemisphere: Peak in June
-   - Southern hemisphere: Peak in December
-
-Formula:
-```
-radiation = base_radiation × (1 - cloud_cover × 0.75) × uv_factor × seasonal_factor
-```
-
 ## API Documentation
 
 For detailed OpenWeatherMap API documentation:
-- [API Documentation](https://openweathermap.org/api)
+- [API Overview](https://openweathermap.org/api)
 - [Current Weather](https://openweathermap.org/current)
 - [5-day Forecast](https://openweathermap.org/forecast5)
+- [One Call API 3.0](https://openweathermap.org/api/one-call-3)
 - [Air Pollution API](https://openweathermap.org/api/air-pollution)
-- [UV Index](https://openweathermap.org/api/uvi)
 
 ## Requirements
 
@@ -329,14 +342,10 @@ For detailed OpenWeatherMap API documentation:
 
 ## Rate Limits
 
-### Free Tier
-- 1,000 calls/day
-- 60 calls/minute
-- Current weather and 5-day forecast
-- Air pollution data
-- UV index
+- **Free Tier**: 1,000,000 calls/month, 60 calls/minute
+- **One Call API**: 1,000 free calls/day, then pay-per-call
 
-For higher limits, see [OpenWeatherMap pricing](https://openweathermap.org/price).
+For pricing details, see [OpenWeatherMap pricing](https://openweathermap.org/price).
 
 ## Health Check
 
