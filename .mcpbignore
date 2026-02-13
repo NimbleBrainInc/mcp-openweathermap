@@ -1,13 +1,10 @@
-# Development environment
+# Development environment (deps/ is created by build action)
 .venv/
 .git/
 .github/
 .pytest_cache/
 __pycache__/
 *.pyc
-.mypy_cache/
-.ruff_cache/
-.coverage
 
 # Test files
 tests/
@@ -24,6 +21,7 @@ Makefile
 pytest.ini
 .env
 .env.*
+scripts/
 
 # Lock files
 uv.lock
@@ -31,3 +29,16 @@ uv.lock
 # IDE
 .vscode/
 .idea/
+
+# Cache
+.mypy_cache/
+.ruff_cache/
+.coverage
+
+# Other files not needed in bundle
+Dockerfile
+conftest.py
+CONTRIBUTING.md
+.python-version
+.claude/
+CLAUDE.md

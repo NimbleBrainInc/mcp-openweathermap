@@ -1,7 +1,8 @@
-IMAGE_NAME = nimbletools/mcp-openweathermap
-VERSION ?= 1.0.1
+# MCPB bundle configuration
+BUNDLE_NAME = mcp-openweathermap
+VERSION ?= 0.0.1
 
-.PHONY: help install dev-install format lint test clean run check all
+.PHONY: help install dev-install format format-check lint lint-fix typecheck test test-cov test-e2e clean check all bundle bundle-run run run-stdio run-http test-http bump
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -18,6 +19,9 @@ dev-install: ## Install with dev dependencies
 format: ## Format code with ruff
 	uv run ruff format src/ tests/
 
+format-check: ## Check code formatting with ruff
+	uv run ruff format --check src/ tests/
+
 lint: ## Lint code with ruff
 	uv run ruff check src/ tests/
 
@@ -33,7 +37,7 @@ test: ## Run tests with pytest
 test-cov: ## Run tests with coverage
 	uv run pytest tests/ -v --cov=src/mcp_openweathermap --cov-report=term-missing
 
-test-e2e: ## Run end-to-end Docker tests
+test-e2e: ## Run end-to-end MCPB tests
 	uv run pytest e2e/ -v -s
 
 clean: ## Clean up artifacts
@@ -44,32 +48,50 @@ clean: ## Clean up artifacts
 	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".coverage" -exec rm -rf {} + 2>/dev/null || true
+	rm -rf bundle/ *.mcpb
 
-run: ## Run the MCP server with stdio
+run: ## Run the MCP server
 	uv run python -m mcp_openweathermap.server
 
-run-http: ## Run the MCP server with HTTP transport
+run-stdio: ## Run in stdio mode (for Claude desktop)
+	uv run fastmcp run src/mcp_openweathermap/server.py
+
+run-http: ## Run HTTP server with uvicorn
 	uv run uvicorn mcp_openweathermap.server:app --host 0.0.0.0 --port 8000
 
-check: lint typecheck test ## Run all checks
+test-http: ## Test HTTP server is running
+	@echo "Testing health endpoint..."
+	@curl -s http://localhost:8000/health | grep -q "healthy" && echo "✓ Server is healthy" || echo "✗ Server not responding"
+
+check: format-check lint typecheck test ## Run all checks
 
 all: clean install format lint typecheck test ## Full workflow
 
-# Docker targets
-docker-build: ## Build Docker image
-	docker build -t $(IMAGE_NAME):$(VERSION) .
+# MCPB bundle commands
+bundle: ## Build MCPB bundle locally
+	@./scripts/build-bundle.sh . $(VERSION)
 
-docker-run: ## Run Docker container
-	docker run -p 8000:8000 -e OPENWEATHERMAP_API_KEY=$(OPENWEATHERMAP_API_KEY) $(IMAGE_NAME):$(VERSION)
+bundle-run: bundle ## Build and run MCPB bundle locally
+	@echo "Starting bundle with mcpb-python base image..."
+	@python -m http.server 9999 --directory . &
+	@sleep 1
+	docker run --rm \
+		--add-host host.docker.internal:host-gateway \
+		-p 8000:8000 \
+		-e BUNDLE_URL=http://host.docker.internal:9999/$(BUNDLE_NAME)-v$(VERSION).mcpb \
+		docker.io/nimbletools/mcpb-python:3.14
 
-docker-test: ## Run tests in Docker
-	docker build -t $(IMAGE_NAME):test --target test .
-
-release: ## Build and push multi-platform Docker image
-	docker buildx build --platform linux/amd64,linux/arm64 \
-		-t $(IMAGE_NAME):$(VERSION) \
-		-t $(IMAGE_NAME):latest \
-		--push .
+bump: ## Bump version across all files (usage: make bump VERSION=0.3.0)
+	@if [ -z "$(VERSION)" ]; then echo "Usage: make bump VERSION=x.y.z"; exit 1; fi
+	@echo "Bumping version to $(VERSION)..."
+	@jq --arg v "$(VERSION)" '.version = $$v' manifest.json > manifest.tmp.json && mv manifest.tmp.json manifest.json
+	@sed -i '' 's/^version = ".*"/version = "$(VERSION)"/' pyproject.toml
+	@sed -i '' 's/^__version__ = ".*"/__version__ = "$(VERSION)"/' src/mcp_openweathermap/__init__.py
+	@echo "Updated:"
+	@echo "  manifest.json:                      $$(jq -r .version manifest.json)"
+	@echo "  pyproject.toml:                     $$(grep '^version' pyproject.toml)"
+	@echo "  src/mcp_openweathermap/__init__.py: $$(grep '__version__' src/mcp_openweathermap/__init__.py)"
 
 # Aliases
 fmt: format

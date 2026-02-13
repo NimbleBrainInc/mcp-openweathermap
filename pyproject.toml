@@ -1,9 +1,9 @@
 [project]
 name = "mcp-openweathermap"
-version = "1.0.0"
+version = "0.3.0"
 description = "OpenWeatherMap MCP Server"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 dependencies = [
     "aiohttp>=3.12.15",
     "fastapi>=0.117.1",
@@ -20,7 +20,7 @@ build-backend = "hatchling.build"
 packages = ["src/mcp_openweathermap"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py313"
 line-length = 100
 
 [tool.ruff.lint]
@@ -45,7 +45,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.13"
 strict = true
 warn_return_any = false
 warn_unused_configs = true
@@ -71,6 +71,8 @@ dev = [
 ]
 e2e = [
     "mcp>=1.3.0",
+    "pytest-httpserver>=1.1.0",
     "python-dotenv>=1.2.1",
     "requests>=2.32.0",
+    "testcontainers>=4.9.0",
 ]

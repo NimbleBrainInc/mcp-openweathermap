@@ -1,10 +1,15 @@
 {
-  "manifest_version": "0.3",
+  "manifest_version": "0.4",
   "name": "@nimblebraininc/openweathermap",
-  "version": "0.1.1",
+  "version": "0.3.0",
   "description": "OpenWeatherMap MCP Server for weather data, forecasts, alerts, and air quality",
   "author": {
-    "name": "NimbleBrain Inc"
+    "name": "NimbleBrain Inc",
+    "email": "hello@nimblebrain.ai"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NimbleBrainInc/mcp-openweathermap"
   },
   "user_config": {
     "api_key": {
@@ -23,6 +28,40 @@
       "args": ["-m", "mcp_openweathermap.server"],
       "env": {
         "OPENWEATHERMAP_API_KEY": "${user_config.api_key}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "search_location",
+      "description": "Resolve location query to coordinates with candidate matches"
+    },
+    {
+      "name": "check_weather",
+      "description": "Get current weather conditions for a location"
+    },
+    {
+      "name": "get_forecast",
+      "description": "Get weather forecast (hourly/daily with alerts or 5-day/3h)"
+    },
+    {
+      "name": "check_air_quality",
+      "description": "Get air quality index and pollutant levels for a location"
+    },
+    {
+      "name": "get_historical_weather",
+      "description": "Get historical weather for a past date (requires One Call API subscription)"
+    }
+  ],
+  "_meta": {
+    "org.mpaktrust": {
+      "mtf_version": "0.1",
+      "permissions": {
+        "filesystem": "none",
+        "network": "outbound",
+        "environment": "read",
+        "subprocess": "none",
+        "native": "none"
       }
     }
   }
