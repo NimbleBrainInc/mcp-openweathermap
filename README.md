@@ -24,6 +24,7 @@ Production-ready MCP server for accessing comprehensive weather data from OpenWe
 - **Async/Await**: Built on aiohttp for high performance
 - **Type Safe**: Full mypy strict mode compliance
 - **Comprehensive Tests**: Full coverage with pytest + AsyncMock
+- **Built-in Skill Resource**: Serves a `skill://openweathermap/usage` resource that teaches LLMs location resolution patterns and tool selection
 
 ## Architecture
 

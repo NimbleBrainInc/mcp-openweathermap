@@ -4,6 +4,7 @@ Provides intent-based tools for accessing weather data, forecasts, and air quali
 """
 
 from datetime import datetime
+from importlib.resources import files
 from typing import Any
 
 from fastapi import Request
@@ -13,7 +14,23 @@ from fastmcp import FastMCP
 from .api_client import OpenWeatherMapAPIError, OpenWeatherMapClient
 
 # Initialize FastMCP server
-mcp = FastMCP("OpenWeatherMap MCP Server")
+mcp = FastMCP(
+    "OpenWeatherMap MCP Server",
+    instructions=(
+        "Before using OpenWeatherMap tools, read the skill://openweathermap/usage resource "
+        "for location resolution patterns and tool selection."
+    ),
+)
+
+
+SKILL_CONTENT = files("mcp_openweathermap").joinpath("SKILL.md").read_text()
+
+
+@mcp.resource("skill://openweathermap/usage")
+def openweathermap_skill() -> str:
+    """How to effectively use OpenWeatherMap tools: location resolution, disambiguation, tool selection."""
+    return SKILL_CONTENT
+
 
 # Singleton client instance
 _client: OpenWeatherMapClient | None = None
