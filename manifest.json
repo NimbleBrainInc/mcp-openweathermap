@@ -1,7 +1,7 @@
 {
   "manifest_version": "0.4",
   "name": "@nimblebraininc/openweathermap",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "OpenWeatherMap MCP Server for weather data, forecasts, alerts, and air quality",
   "author": {
     "name": "NimbleBrain Inc",
@@ -25,7 +25,10 @@
     "entry_point": "mcp_openweathermap.server",
     "mcp_config": {
       "command": "python",
-      "args": ["-m", "mcp_openweathermap.server"],
+      "args": [
+        "-m",
+        "mcp_openweathermap.server"
+      ],
       "env": {
         "OPENWEATHERMAP_API_KEY": "${user_config.api_key}"
       }
