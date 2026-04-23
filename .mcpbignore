@@ -1,44 +1,37 @@
-# Development environment (deps/ is created by build action)
-.venv/
-.git/
-.github/
-.pytest_cache/
+# mcpb pack loads this file and treats each pattern as gitignore-style.
+# Gitignore rule that bites: a pattern without a leading `/` matches
+# anywhere in the tree, including inside `deps/`. Unanchored `conftest.py`
+# or `tests/` happily strips vendored `deps/<pkg>/.../conftest.py` and
+# breaks imports at runtime. Anchor project-only patterns with `/`.
+
+# ── Strip anywhere (generated/OS cruft — safe to remove from deps/) ──
 __pycache__/
 *.pyc
-
-# Test files
-tests/
-e2e/
-
-# Build artifacts
-dist/
-build/
 *.egg-info/
 *.mcpb
 
-# Dev config
-Makefile
-pytest.ini
-.env
-.env.*
-scripts/
-
-# Lock files
-uv.lock
-
-# IDE
-.vscode/
-.idea/
-
-# Cache
-.mypy_cache/
-.ruff_cache/
-.coverage
-
-# Other files not needed in bundle
-Dockerfile
-conftest.py
-CONTRIBUTING.md
-.python-version
-.claude/
-CLAUDE.md
+# ── Project-only (anchored) ──
+/.venv/
+/.git/
+/.github/
+/.claude/
+/.vscode/
+/.idea/
+/.env
+/.env.*
+/.python-version
+/.pytest_cache/
+/.ruff_cache/
+/.mypy_cache/
+/.coverage
+/build/
+/dist/
+/tests/
+/e2e/
+/scripts/
+/Makefile
+/Dockerfile
+/pytest.ini
+/uv.lock
+/CLAUDE.md
+/CONTRIBUTING.md
