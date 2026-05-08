@@ -11,7 +11,7 @@ from .api_models import (
 )
 from .server import app, mcp
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 __all__ = [
     "OpenWeatherMapClient",
