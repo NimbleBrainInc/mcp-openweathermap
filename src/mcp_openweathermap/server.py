@@ -3,6 +3,11 @@ OpenWeatherMap MCP Server
 Provides intent-based tools for accessing weather data, forecasts, and air quality.
 """
 
+import logging
+import os
+import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from importlib.resources import files
 from typing import Any
@@ -10,8 +15,19 @@ from typing import Any
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 
 from .api_client import OpenWeatherMapAPIError, OpenWeatherMapClient
+
+# Diagnostics go to stderr (stdout is reserved for JSON-RPC), never to the client: MCP's
+# logging capability is deprecated as of the 2026-07-28 protocol (SEP-2577). A failure the
+# caller must see is raised as a ToolError.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stderr,
+)
+logger = logging.getLogger("mcp_openweathermap")
 
 # Initialize FastMCP server
 mcp = FastMCP(
@@ -37,11 +53,30 @@ _client: OpenWeatherMapClient | None = None
 
 
 def get_client() -> OpenWeatherMapClient:
-    """Get or create the singleton API client."""
+    """Get or create the singleton API client.
+
+    Raises:
+        ToolError: when OPENWEATHERMAP_API_KEY is not set, so the caller sees why the tool
+            failed.
+    """
     global _client
     if _client is None:
-        _client = OpenWeatherMapClient()
+        api_key = os.environ.get("OPENWEATHERMAP_API_KEY")
+        if not api_key:
+            logger.error("OPENWEATHERMAP_API_KEY is not set")
+            raise ToolError("OPENWEATHERMAP_API_KEY environment variable is required")
+        _client = OpenWeatherMapClient(api_key=api_key)
     return _client
+
+
+@contextmanager
+def surface_api_errors(tool: str) -> Iterator[None]:
+    """Report an OpenWeatherMap API failure to the caller as a ToolError."""
+    try:
+        yield
+    except OpenWeatherMapAPIError as e:
+        logger.warning("%s failed: %s", tool, e)
+        raise ToolError(str(e)) from e
 
 
 async def resolve_coordinates(
@@ -97,19 +132,20 @@ async def search_location(query: str, limit: int = 5) -> list[dict[str, Any]]:
     Returns:
         List of matching locations with name, state, country, lat, lon
     """
-    client = get_client()
-    async with client:
-        results = await client.geocode_location(query, limit=limit)
-        return [
-            {
-                "name": r.name,
-                "state": r.state,
-                "country": r.country,
-                "lat": r.lat,
-                "lon": r.lon,
-            }
-            for r in results
-        ]
+    with surface_api_errors("search_location"):
+        client = get_client()
+        async with client:
+            results = await client.geocode_location(query, limit=limit)
+            return [
+                {
+                    "name": r.name,
+                    "state": r.state,
+                    "country": r.country,
+                    "lat": r.lat,
+                    "lon": r.lon,
+                }
+                for r in results
+            ]
 
 
 @mcp.tool()
@@ -133,11 +169,12 @@ async def check_weather(
     Returns:
         Current temperature, humidity, wind, weather conditions
     """
-    client = get_client()
-    async with client:
-        resolved_lat, resolved_lon = await resolve_coordinates(client, location, lat, lon)
-        weather = await client.get_current_weather(resolved_lat, resolved_lon, units)
-        return weather.model_dump()
+    with surface_api_errors("check_weather"):
+        client = get_client()
+        async with client:
+            resolved_lat, resolved_lon = await resolve_coordinates(client, location, lat, lon)
+            weather = await client.get_current_weather(resolved_lat, resolved_lon, units)
+            return weather.model_dump()
 
 
 @mcp.tool()
@@ -161,10 +198,11 @@ async def get_forecast(
     Returns:
         Forecast data with 'source' field ('one_call' or 'free_tier')
     """
-    client = get_client()
-    async with client:
-        resolved_lat, resolved_lon = await resolve_coordinates(client, location, lat, lon)
-        return await client.get_forecast_with_fallback(resolved_lat, resolved_lon, units)
+    with surface_api_errors("get_forecast"):
+        client = get_client()
+        async with client:
+            resolved_lat, resolved_lon = await resolve_coordinates(client, location, lat, lon)
+            return await client.get_forecast_with_fallback(resolved_lat, resolved_lon, units)
 
 
 @mcp.tool()
@@ -186,11 +224,12 @@ async def check_air_quality(
     Returns:
         AQI (1=Good to 5=Very Poor) and pollutant concentrations
     """
-    client = get_client()
-    async with client:
-        resolved_lat, resolved_lon = await resolve_coordinates(client, location, lat, lon)
-        data = await client.get_air_quality(resolved_lat, resolved_lon)
-        return data.model_dump()
+    with surface_api_errors("check_air_quality"):
+        client = get_client()
+        async with client:
+            resolved_lat, resolved_lon = await resolve_coordinates(client, location, lat, lon)
+            data = await client.get_air_quality(resolved_lat, resolved_lon)
+            return data.model_dump()
 
 
 @mcp.tool()
@@ -216,25 +255,26 @@ async def get_historical_weather(
     Returns:
         Historical weather data or subscription error
     """
-    client = get_client()
-    async with client:
-        resolved_lat, resolved_lon = await resolve_coordinates(client, location, lat, lon)
+    with surface_api_errors("get_historical_weather"):
+        client = get_client()
+        async with client:
+            resolved_lat, resolved_lon = await resolve_coordinates(client, location, lat, lon)
 
-        try:
-            dt = int(datetime.strptime(date, "%Y-%m-%d").timestamp())
-        except ValueError as e:
-            return {"error": f"Invalid date format. Use YYYY-MM-DD. {e}"}
+            try:
+                dt = int(datetime.strptime(date, "%Y-%m-%d").timestamp())
+            except ValueError as e:
+                return {"error": f"Invalid date format. Use YYYY-MM-DD. {e}"}
 
-        try:
-            data = await client.get_one_call_timemachine(resolved_lat, resolved_lon, dt, units)
-            return {"source": "one_call", **data.model_dump()}
-        except OpenWeatherMapAPIError as e:
-            if e.status in (401, 403):
-                return {
-                    "error": "Historical weather requires One Call API subscription",
-                    "subscription_url": "https://openweathermap.org/api/one-call-3",
-                }
-            raise
+            try:
+                data = await client.get_one_call_timemachine(resolved_lat, resolved_lon, dt, units)
+                return {"source": "one_call", **data.model_dump()}
+            except OpenWeatherMapAPIError as e:
+                if e.status in (401, 403):
+                    return {
+                        "error": "Historical weather requires One Call API subscription",
+                        "subscription_url": "https://openweathermap.org/api/one-call-3",
+                    }
+                raise
 
 
 # Create ASGI application for uvicorn
