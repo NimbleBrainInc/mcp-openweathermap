@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "@nimblebraininc/openweathermap",
   "display_name": "OpenWeatherMap",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "description": "OpenWeatherMap MCP Server for weather data, forecasts, alerts, and air quality",
   "author": {
     "name": "NimbleBrain Inc",

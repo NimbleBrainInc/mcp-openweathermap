@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastmcp.exceptions import ToolError
 
 from mcp_openweathermap import server
 from mcp_openweathermap.api_client import OpenWeatherMapAPIError
@@ -23,12 +24,12 @@ def mock_client() -> MagicMock:
     return client
 
 
-# Access the underlying functions from FastMCP tools
-search_location_fn = server.search_location.fn
-check_weather_fn = server.check_weather.fn
-get_forecast_fn = server.get_forecast.fn
-check_air_quality_fn = server.check_air_quality.fn
-get_historical_weather_fn = server.get_historical_weather.fn
+# FastMCP 4's @mcp.tool() returns the function itself
+search_location_fn = server.search_location
+check_weather_fn = server.check_weather
+get_forecast_fn = server.get_forecast
+check_air_quality_fn = server.check_air_quality
+get_historical_weather_fn = server.get_historical_weather
 
 
 class TestSearchLocation:
@@ -135,10 +136,9 @@ class TestCheckWeather:
     async def test_check_weather_missing_params_error(self, mock_client: MagicMock) -> None:
         """Test error when neither location nor lat/lon provided."""
         with patch.object(server, "get_client", return_value=mock_client):
-            with pytest.raises(OpenWeatherMapAPIError) as exc_info:
+            with pytest.raises(ToolError, match="Provide either") as exc_info:
                 await check_weather_fn()
-            assert exc_info.value.status == 400
-            assert "Provide either" in exc_info.value.message
+            assert exc_info.value.__cause__.status == 400
 
 
 class TestGetForecast:
@@ -296,9 +296,7 @@ class TestGetHistoricalWeather:
             assert "error" in result
             assert "Invalid date format" in result["error"]
 
-    async def test_historical_weather_other_errors_propagate(
-        self, mock_client: MagicMock
-    ) -> None:
+    async def test_historical_weather_other_errors_propagate(self, mock_client: MagicMock) -> None:
         """Test that non-auth errors are raised."""
         mock_client.resolve_location = AsyncMock(return_value=(51.5, -0.1))
         mock_client.get_one_call_timemachine = AsyncMock(
@@ -306,9 +304,9 @@ class TestGetHistoricalWeather:
         )
 
         with patch.object(server, "get_client", return_value=mock_client):
-            with pytest.raises(OpenWeatherMapAPIError) as exc_info:
+            with pytest.raises(ToolError) as exc_info:
                 await get_historical_weather_fn(date="2024-01-15", location="London")
-            assert exc_info.value.status == 500
+            assert exc_info.value.__cause__.status == 500
 
 
 class TestLocationResolution:
@@ -321,10 +319,9 @@ class TestLocationResolution:
         )
 
         with patch.object(server, "get_client", return_value=mock_client):
-            with pytest.raises(OpenWeatherMapAPIError) as exc_info:
+            with pytest.raises(ToolError, match="search_location") as exc_info:
                 await check_weather_fn(location="Waimea, HI")
-            assert exc_info.value.status == 404
-            assert "search_location" in exc_info.value.message
+            assert exc_info.value.__cause__.status == 404
 
     async def test_lat_lon_bypasses_location_resolution(self, mock_client: MagicMock) -> None:
         """Test that lat/lon coordinates skip resolve_location entirely."""
@@ -358,3 +355,12 @@ class TestHealthEndpoint:
         body = json.loads(response.body)
         assert body["status"] == "healthy"
         assert body["service"] == "mcp-openweathermap"
+
+
+class TestMissingApiKey:
+    """The caller learns why a tool failed when the API key is not configured."""
+
+    async def test_missing_api_key_raises_tool_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("OPENWEATHERMAP_API_KEY", raising=False)
+        with pytest.raises(ToolError, match="OPENWEATHERMAP_API_KEY"):
+            await check_weather_fn(lat=1.0, lon=2.0)
