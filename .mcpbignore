@@ -27,6 +27,7 @@ __pycache__/
 /build/
 /dist/
 /tests/
+/conftest.py
 /e2e/
 /scripts/
 /Makefile
